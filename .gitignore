@@ -1,3 +1,4 @@
 .vscode
 dummy_data*
 to_studen*
+*.o
