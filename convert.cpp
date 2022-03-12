@@ -16,8 +16,8 @@ int main(int argc, char* argv[]){
     infil.close();
     outfil.close();
 
-    ifstream infil(input_dir+"/ep.txt",ios::in);
-    fstream outfil(output_dir+"/ep.bin",ios::out);
+    infil.open(input_dir+"/ep.txt",ios::in);
+    outfil.open(output_dir+"/ep.bin",ios::out);
     infil>>temp;
     outfil.write((char*)&temp,4);
     infil.close();
@@ -28,8 +28,8 @@ int main(int argc, char* argv[]){
 
     for(int idx=0;idx<innames.size();idx++)
     {
-        ifstream infil(input_dir+innames[idx],ios::in);
-        fstream outfil(output_dir+outnames[idx],ios::out);
+        infil.open(input_dir+innames[idx],ios::in);
+        outfil.open(output_dir+outnames[idx],ios::out);
         while(infil>>temp)
         {
             outfil.write((char*)&temp,4);
