@@ -59,9 +59,9 @@ void QueryHNSW(vector<float>& q,vector<int>& thistopk,int ep,vector<int>& indptr
     }
 
     int total_size = pq_topk.size();
-    while(total_size>=0)                            // no parallelization possible..
+    while(total_size>0)                            // no parallelization possible..
     {
-        thistopk[total_size] = pq_topk.top().second;
+        thistopk[total_size-1] = pq_topk.top().second;
         pq_topk.pop();
         total_size--;
     }
@@ -145,7 +145,7 @@ int main(int argc, char* argv[]){
     outfil.open(user_file,ios::in);
     i = 0;
     teemp.resize(0);
-    while(outfil.read((char*)&tmp,sizeof(float)))
+    while(outfil>>tmp)
     {
         teemp.push_back(tmp);
         i++;
@@ -165,7 +165,7 @@ int main(int argc, char* argv[]){
         QueryHNSW(userEmbed[idx],outputK[idx],ep,indptr,index,level_offset,max_level,vect);
         for(int i=0;i<k;i++)
         {
-            cout << outputK[idx][i] << " ";
+            cout <<outputK[idx][i] << " ";
         }
         cout << "\n";
     }
