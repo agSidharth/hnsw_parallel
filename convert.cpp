@@ -7,10 +7,24 @@ int count_elements(string str)
     char last = '2';
     for (auto s:str)
     {
-        if(s!=last) cnt++;
+        if(s!=last && s==' ') cnt++;
         last = s;
     }
     return cnt;
+}
+
+int fill(vector<float> &tmp, string str)
+{
+    stringstream s(str);
+    float temp;
+    int cnt = 0;
+    while(s>>temp)
+    {
+        tmp.push_back(temp);
+        cnt++;
+    }
+    return cnt;
+
 }
 
 int main(int argc, char* argv[]){
@@ -34,7 +48,6 @@ int main(int argc, char* argv[]){
     outfil.write((char*)&temp,4);
     infil.close();
     outfil.close();
-    cout << "Writing";
     vector<string> innames  = {"/level.txt","/index.txt","/indptr.txt","/level_offset.txt"};
     vector<string> outnames = {"/level.bin","/index.bin","/indptr.bin","/level_offset.bin"};
 
@@ -53,19 +66,42 @@ int main(int argc, char* argv[]){
     string in_vect = "/vect.txt";
     string out_vect = "/vect.bin";
 
-    infil.open(input_dir+in_vect,ios::in);
-    string str;
-    getline(infil,str);
-    int cnt = count_elements(str);
-    infil.close();
+    // infil.open(input_dir+in_vect,ios::in);
+    // string str;
+    // getline(infil,str);
+    // int cnt = count_elements(str) + 1;
+    // infil.close();
 
+    // fstream infil2;
+    // infil2.open(input_dir+in_vect,ios::in);
+    // outfil.open(output_dir+out_vect,ios::out);
+
+    // outfil.write((char*)&cnt,4);
+    // while(infil2>>temp)
+    // {
+    //     outfil.write((char*)&temp,4);
+    // }
+    
     infil.open(input_dir+in_vect,ios::in);
     outfil.open(output_dir+out_vect,ios::out);
 
-    outfil.write((char*)&cnt,4);
-    while(infil>>temp)
+    string str;
+    int no = 0;
+
+    while(getline(infil,str))
     {
-        outfil.write((char*)&temp,4);
+        if(str.size() == 0) break;
+        vector<float> tmp;
+        int k = fill(tmp,str);
+        if(no == 0)
+        {
+            no = 1;
+            outfil.write((char*)&k,4);
+        }
+        for(int i=0;i<tmp.size();i++)
+        {
+            outfil.write((char*)&tmp[i],4);
+        }
     }
 
 

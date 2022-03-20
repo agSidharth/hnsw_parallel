@@ -4,7 +4,6 @@ using namespace std;
 float cosine_dist(vector<float>& x,vector<float>& y)          // can be parallelized
 {
     float modX,modY,dotXY;
-
     for(int idx=0;idx<x.size();idx++)
     {
         modX += x[idx]*x[idx];
@@ -12,6 +11,7 @@ float cosine_dist(vector<float>& x,vector<float>& y)          // can be parallel
         dotXY += x[idx]*y[idx];
     }
 
+    if(modX == 0 || modY == 0) return 0;
     return float(dotXY)/float(sqrt(modX)*sqrt(modY));
 }
 
@@ -47,6 +47,7 @@ void SearchLayer(vector<float>& q,priority_queue<pair<float,int>>& topk,vector<i
 
 void QueryHNSW(vector<float>& q,vector<int>& thistopk,int ep,vector<int>& indptr,vector<int>& index,vector<int>& level_offset,int max_level,vector<vector<float>>& vect)
 {
+
     priority_queue<pair<float,int>> pq_topk;          //store (distance,node_id)
     pq_topk.push({cosine_dist(q,vect[ep]),ep});   
     vector<int> visited(vect.size(),0);
@@ -64,7 +65,6 @@ void QueryHNSW(vector<float>& q,vector<int>& thistopk,int ep,vector<int>& indptr
         pq_topk.pop();
         total_size--;
     }
-
     return;
 }
 
@@ -85,6 +85,7 @@ int main(int argc, char* argv[]){
     vector<vector<float>> vect;
     vector<vector<float>> userEmbed;
 
+    
     // read all the files appropriately..
     fstream outfil(out_dir+"/max_level.bin",ios::in);
     outfil.read((char*)&max_level,4);
@@ -100,7 +101,7 @@ int main(int argc, char* argv[]){
         level.push_back(temp);
     }
     outfil.close();
-
+    
     outfil.open(out_dir+"/level_offset.bin",ios::in);
     while(outfil.read((char*)&temp,4))
     {
@@ -114,7 +115,7 @@ int main(int argc, char* argv[]){
         indptr.push_back(temp);
     }
     outfil.close();
-
+    
     outfil.open(out_dir+"/index.bin",ios::in);
     while(outfil.read((char*)&temp,4))
     {
@@ -157,12 +158,16 @@ int main(int argc, char* argv[]){
     }
     outfil.close();
 
-
     vector<vector<int>> outputK(userEmbed.size(),vector<int> (k,-1));        //recommendation==-1 means not yet computed.
 
     for(int idx=0;idx<userEmbed.size();idx++)
     {
         QueryHNSW(userEmbed[idx],outputK[idx],ep,indptr,index,level_offset,max_level,vect);
+        for(int i=0;i<k;i++)
+        {
+            cout << outputK[idx][i] << " ";
+        }
+        cout << "\n";
     }
 
 }
