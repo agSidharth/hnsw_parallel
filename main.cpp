@@ -4,6 +4,7 @@ using namespace std;
 float cosine_dist(vector<float>& x,vector<float>& y)          // can be parallelized
 {
     float modX,modY,dotXY;
+    modX = modY = dotXY = 0;
     for(int idx=0;idx<x.size();idx++)
     {
         modX += x[idx]*x[idx];
@@ -12,7 +13,7 @@ float cosine_dist(vector<float>& x,vector<float>& y)          // can be parallel
     }
 
     if(modX == 0 || modY == 0) return 0;
-    return float(dotXY)/float(sqrt(modX)*sqrt(modY));
+    return  float(dotXY)/float(sqrt(modX)*sqrt(modY));
 }
 
 void SearchLayer(vector<float>& q,priority_queue<pair<float,int>>& topk,vector<int>& indptr,vector<int>& index,vector<int>& level_offset,int lc,vector<int>& visited,vector<vector<float>>& vect,int k)
