@@ -176,19 +176,15 @@ int main(int argc, char* argv[]){
 
     vector<vector<int>> outputK(userEmbed.size(),vector<int> (k,-1));        //recommendation==-1 means not yet computed.
 
-    int rank, size;
+    int rank, sze;
     MPI_Init(NULL,NULL);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-    for(int idx=rank;idx<userEmbed.size();idx+=size)
+    MPI_Comm_size(MPI_COMM_WORLD, &sze);
+    #pragma omp parallel for num_threads(4)
+    for(int idx=rank;idx<userEmbed.size();idx+=sze)
     {
         QueryHNSW(userEmbed[idx],outputK[idx],ep,indptr,index,level_offset,max_level,vect);
-        for(int i=0;i<k;i++)
-        {
-            cout <<outputK[idx][i] << " ";
-        }
-        cout << "\n";
+        cout << "1" <<endl;
     }
     MPI_Finalize();
 }
