@@ -186,5 +186,46 @@ int main(int argc, char* argv[]){
         QueryHNSW(userEmbed[idx],outputK[idx],ep,indptr,index,level_offset,max_level,vect);
         //cout << "1" <<endl;
     }
+    
+    //cerr<<"rank: "<<rank<<", size: "<<sze<<endl;
+
+    if(rank%sze==0)
+    {
+        for(int mdx=0;mdx<outputK.size();mdx++)
+        {
+            if(mdx%sze==0) continue;
+
+            /*
+            cerr<<"index: "<<mdx<<endl;
+            for(int tdx=0;tdx<outputK[mdx].size();tdx++) cerr<<outputK[mdx][tdx]<<" ";
+            */
+
+            MPI_Recv(&outputK[mdx][0],k,MPI_INT,mdx%sze,mdx,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+
+            /*
+            cerr<<"\n";
+            for(int tdx=0;tdx<outputK[mdx].size();tdx++) cerr<<outputK[mdx][tdx]<<" ";
+            cerr<<"\n";
+            */
+        }
+    }
+    else
+    {
+        for(int mdx=rank;mdx<outputK.size();mdx += sze)
+        {
+            MPI_Send(&outputK[mdx][0],k,MPI_INT,0,mdx,MPI_COMM_WORLD);
+        }
+    }
+
+    if(rank==0)
+    {
+        for(int idx=0;idx<outputK.size();idx++)
+        {
+            cerr<<"index: "<<idx<<" : ";
+            for(int fdx=0;fdx<outputK[idx].size();fdx++) cerr<<outputK[idx][fdx]<<" ";
+            cerr<<"\n";
+        }
+    }
+
     MPI_Finalize();
 }
