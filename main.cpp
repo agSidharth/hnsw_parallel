@@ -176,7 +176,12 @@ int main(int argc, char* argv[]){
 
     vector<vector<int>> outputK(userEmbed.size(),vector<int> (k,-1));        //recommendation==-1 means not yet computed.
 
-    for(int idx=0;idx<userEmbed.size();idx++)
+    int rank, size;
+    MPI_Init(NULL,NULL);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    for(int idx=rank;idx<userEmbed.size();idx+=size)
     {
         QueryHNSW(userEmbed[idx],outputK[idx],ep,indptr,index,level_offset,max_level,vect);
         for(int i=0;i<k;i++)
@@ -185,5 +190,5 @@ int main(int argc, char* argv[]){
         }
         cout << "\n";
     }
-
+    MPI_Finalize();
 }
