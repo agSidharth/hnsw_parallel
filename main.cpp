@@ -1,5 +1,19 @@
 #include <bits/stdc++.h>
+#include <mpi.h>
+
 using namespace std;
+
+class comp
+{
+    public:
+    int operator() (const pair<float,int> &a,const pair<float,int> &b)
+    {
+        if(b.first != a.first)
+            return b.first < a.first;
+        else
+            return b.second > a.second;
+    }
+};
 
 float cosine_dist(vector<float>& x,vector<float>& y)          // can be parallelized
 {
@@ -16,9 +30,9 @@ float cosine_dist(vector<float>& x,vector<float>& y)          // can be parallel
     return  float(dotXY)/float(sqrt(modX)*sqrt(modY));
 }
 
-void SearchLayer(vector<float>& q,priority_queue<pair<float,int>>& topk,vector<int>& indptr,vector<int>& index,vector<int>& level_offset,int lc,vector<int>& visited,vector<vector<float>>& vect,int k)
+void SearchLayer(vector<float>& q,priority_queue<pair<float,int>, vector<pair<float,int>>,comp>& topk,vector<int>& indptr,vector<int>& index,vector<int>& level_offset,int lc,vector<int>& visited,vector<vector<float>>& vect,int k)
 {
-    priority_queue<pair<float,int>> candidates = topk;          //confirm if it is a priority queue or not..
+    priority_queue<pair<float,int>, vector<pair<float,int>>,comp> candidates = topk;          //confirm if it is a priority queue or not..
 
     while(candidates.size()>0)
     {
@@ -36,7 +50,7 @@ void SearchLayer(vector<float>& q,priority_queue<pair<float,int>>& topk,vector<i
             visited[px] = 1;
             float _dist = cosine_dist(q,vect[px]);
 
-            if (_dist >= topk.top().first && topk.size()==k) continue;
+            if (_dist <= topk.top().first && topk.size()==k) continue;
 
             if(topk.size()==k) topk.pop();
             topk.push({_dist,px});
@@ -49,7 +63,7 @@ void SearchLayer(vector<float>& q,priority_queue<pair<float,int>>& topk,vector<i
 void QueryHNSW(vector<float>& q,vector<int>& thistopk,int ep,vector<int>& indptr,vector<int>& index,vector<int>& level_offset,int max_level,vector<vector<float>>& vect)
 {
 
-    priority_queue<pair<float,int>> pq_topk;          //store (distance,node_id)
+    priority_queue<pair<float,int>, vector<pair<float,int>>,comp> pq_topk;          //store (distance,node_id)
     pq_topk.push({cosine_dist(q,vect[ep]),ep});   
     vector<int> visited(vect.size(),0);
 
@@ -63,6 +77,7 @@ void QueryHNSW(vector<float>& q,vector<int>& thistopk,int ep,vector<int>& indptr
     while(total_size>0)                            // no parallelization possible..
     {
         thistopk[total_size-1] = pq_topk.top().second;
+        //cout << "  a  " << pq_topk.top().second << ":" << pq_topk.top().first <<" ";
         pq_topk.pop();
         total_size--;
     }
