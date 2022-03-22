@@ -184,7 +184,7 @@ int main(int argc, char* argv[]){
     for(int idx=rank;idx<userEmbed.size();idx+=sze)
     {
         QueryHNSW(userEmbed[idx],outputK[idx],ep,indptr,index,level_offset,max_level,vect);
-        cout << "1" <<endl;
+        //cout << "1" <<endl;
     }
     MPI_Finalize();
 }
