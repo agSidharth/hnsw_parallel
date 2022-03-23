@@ -1,1 +1,1 @@
-mpirun -np 2 hnsw.o $1 $2 $3 $4
+mpirun -np 4 hnsw.o $1 $2 $3 $4

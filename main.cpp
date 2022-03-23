@@ -60,7 +60,7 @@ void SearchLayer(vector<float>& q,priority_queue<pair<float,int>, vector<pair<fl
 }
 
 
-void QueryHNSW(vector<float>& q,vector<int>& thistopk,int ep,vector<int>& indptr,vector<int>& index,vector<int>& level_offset,int max_level,vector<vector<float>>& vect)
+void QueryHNSW(vector<float>& q,int thistopk[],int num_users,int ep,vector<int>& indptr,vector<int>& index,vector<int>& level_offset,int max_level,vector<vector<float>>& vect)
 {
 
     priority_queue<pair<float,int>, vector<pair<float,int>>,comp> pq_topk;          //store (distance,node_id)
@@ -70,7 +70,7 @@ void QueryHNSW(vector<float>& q,vector<int>& thistopk,int ep,vector<int>& indptr
     visited[ep] = 1;
     for(int lev=max_level;lev>=0;lev--)               // no parallelization possible..
     {
-        SearchLayer(q,pq_topk,indptr,index,level_offset,lev,visited,vect,thistopk.size());
+        SearchLayer(q,pq_topk,indptr,index,level_offset,lev,visited,vect,num_users);
     }
 
     int total_size = pq_topk.size();
@@ -174,39 +174,77 @@ int main(int argc, char* argv[]){
     }
     outfil.close();
 
-    vector<vector<int>> outputK(userEmbed.size(),vector<int> (k,-1));        //recommendation==-1 means not yet computed.
+
+    int outputK[userEmbed.size()][k];
+    //vector<vector<int>> outputK(userEmbed.size(),vector<int> (k,-1));        //recommendation==-1 means not yet computed.
 
     int rank, sze;
     MPI_Init(NULL,NULL);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &sze);
+
+    int start = (userEmbed.size()/sze)*rank;
+    int end = (userEmbed.size()/sze)*(rank+1);
+
+    if(rank==sze-1) end = userEmbed.size();
+
     #pragma omp parallel for num_threads(4)
-    for(int idx=rank;idx<userEmbed.size();idx+=sze)
+    for(int idx=start;idx<end;idx+=1)
     {
-        QueryHNSW(userEmbed[idx],outputK[idx],ep,indptr,index,level_offset,max_level,vect);
-        //cout << "1" <<endl;
+        QueryHNSW(userEmbed[idx],outputK[idx],userEmbed.size(),ep,indptr,index,level_offset,max_level,vect);
     }
     
-    //cerr<<"rank: "<<rank<<", size: "<<sze<<endl;
+    int recvCounts[sze];
+    int displacements[sze];
 
+    for(int fdx=0;fdx<sze;fdx++)
+    {
+        recvCounts[fdx] = (userEmbed.size()/sze)*k;
+        displacements[fdx] = (userEmbed.size()/sze)*k*fdx;
+    }
+    recvCounts[sze-1] = userEmbed.size()*k - (sze-1)*(userEmbed.size()/sze)*k;
+    
+    int outputK_final[userEmbed.size()][k];
+
+    if(rank==2)
+    {
+        cerr<<"Before gather..\n";
+        for(int mdx=0;mdx<userEmbed.size();mdx++)
+        {
+            cerr<<mdx<<" : ";
+            for(int fdx=0;fdx<k;fdx++) cerr<<outputK[mdx][fdx]<<" ";
+            cerr<<"\n";
+        }
+    }
+
+    MPI_Gatherv(&(outputK[start][0]),recvCounts[rank],MPI_INT,&(outputK_final[0][0]),recvCounts,displacements,MPI_INT,0,MPI_COMM_WORLD);
+    
+    //cerr<<"rank: "<<rank<<", size: "<<sze<<endl;
+    if(rank==0)
+    {
+        cerr<<"After gather..\n";
+        for(int mdx=0;mdx<userEmbed.size();mdx++)
+        {
+            cerr<<mdx<<" : ";
+            for(int fdx=0;fdx<k;fdx++) cerr<<outputK_final[mdx][fdx]<<" ";
+            cerr<<"\n";
+        }
+    }    
+    /*
     if(rank%sze==0)
     {
         for(int mdx=0;mdx<outputK.size();mdx++)
         {
             if(mdx%sze==0) continue;
 
-            /*
-            cerr<<"index: "<<mdx<<endl;
-            for(int tdx=0;tdx<outputK[mdx].size();tdx++) cerr<<outputK[mdx][tdx]<<" ";
-            */
-
+            //cerr<<"index: "<<mdx<<endl;
+            //for(int tdx=0;tdx<outputK[mdx].size();tdx++) cerr<<outputK[mdx][tdx]<<" ";
+            
             MPI_Recv(&outputK[mdx][0],k,MPI_INT,mdx%sze,mdx,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
 
-            /*
-            cerr<<"\n";
-            for(int tdx=0;tdx<outputK[mdx].size();tdx++) cerr<<outputK[mdx][tdx]<<" ";
-            cerr<<"\n";
-            */
+            //cerr<<"\n";
+            //for(int tdx=0;tdx<outputK[mdx].size();tdx++) cerr<<outputK[mdx][tdx]<<" ";
+            //cerr<<"\n";
         }
     }
     else
@@ -226,6 +264,7 @@ int main(int argc, char* argv[]){
             cerr<<"\n";
         }
     }
-
+    */
+    
     MPI_Finalize();
 }
