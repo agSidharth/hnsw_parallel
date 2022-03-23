@@ -32,8 +32,9 @@ float cosine_dist(vector<float>& x,vector<float>& y)          // can be parallel
 
 void SearchLayer(vector<float>& q,priority_queue<pair<float,int>, vector<pair<float,int>>,comp>& topk,vector<int>& indptr,vector<int>& index,vector<int>& level_offset,int lc,vector<int>& visited,vector<vector<float>>& vect,int k)
 {
-    //priority_queue<pair<float,int>, vector<pair<float,int>>,comp> candidates = topk;          //confirm if it is a priority queue or not..
+    priority_queue<pair<float,int>, vector<pair<float,int>>,comp> candidates = topk;          //confirm if it is a priority queue or not..
     
+    /*
     queue<pair<float,int>> candidates;
     while(topk.size()>0)
     {
@@ -49,11 +50,11 @@ void SearchLayer(vector<float>& q,priority_queue<pair<float,int>, vector<pair<fl
         candidates.pop();
         candidates.push(p);
     }
-    // Select any one form of candidates..
+    // Select any one form of candidates.. */
 
     while(candidates.size()>0)
     {
-        int this_ep = candidates.front().second;//candidates.top().second;
+        int this_ep = candidates.top().second;//candidates.top().second;
         candidates.pop();
 
         int start = indptr[this_ep] + level_offset[lc];
@@ -223,7 +224,7 @@ int main(int argc, char* argv[]){
     
     int outputK_final[userEmbed.size()][k];
 
-    if(rank==2)
+    if(rank==-1)
     {
         cerr<<"Before gather..\n";
         for(int mdx=0;mdx<userEmbed.size();mdx++)
