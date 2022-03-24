@@ -104,6 +104,8 @@ void QueryHNSW(vector<float>& q,int* thistopk,int array_off,int k,int ep,vector<
 int main(int argc, char* argv[]){
     assert(argc>4);
 
+    time_t startT, endT;
+
     string out_dir = argv[1];
     int k = stoi(argv[2]);              // check if needs to use uint32_t
     string user_file = argv[3];         //embeddings..
@@ -118,7 +120,7 @@ int main(int argc, char* argv[]){
     vector<vector<float>> vect;
     vector<vector<float>> userEmbed;
 
-    
+    time(&startT);
     // read all the files appropriately..
     fstream outfil(out_dir+"/max_level.bin",ios::in);
     outfil.read((char*)&max_level,4);
@@ -191,7 +193,7 @@ int main(int argc, char* argv[]){
     }
     outfil.close();
 
-
+    
     int* outputK = new int[userEmbed.size()*k];
     //vector<vector<int>> outputK(userEmbed.size(),vector<int> (k,-1));        //recommendation==-1 means not yet computed.
 
@@ -200,15 +202,22 @@ int main(int argc, char* argv[]){
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &sze);
 
+    time(&endT);
+    double time_taken = double(endT - startT);
+    if(rank==0) cerr << "For reading: "<<time_taken<<endl;
+
+    time(&startT);
+
     int start = (userEmbed.size()/sze)*rank;
     int end = (userEmbed.size()/sze)*(rank+1);
 
     if(rank==sze-1) end = userEmbed.size();
 
+    if(rank==0) {cout <<"MPI: "<<sze<< ", Threads: "<< omp_get_num_threads()<<endl;}
+
     #pragma omp parallel for
     for(int idx=start;idx<end;idx+=1)
     {
-        //cout << omp_get_num_threads();
         QueryHNSW(userEmbed[idx],outputK,idx*k,k,ep,indptr,index,level_offset,max_level,vect);
     }
     
@@ -235,6 +244,7 @@ int main(int argc, char* argv[]){
         }
     }
 
+    //if(rank==0) cerr<<"Before gatherv..\n";
     MPI_Gatherv(&(outputK[start*k]),recvCounts[rank],MPI_INT,&(outputK_final[0]),recvCounts,displacements,MPI_INT,0,MPI_COMM_WORLD);
     
     //cerr<<"rank: "<<rank<<", size: "<<sze<<endl;
@@ -246,8 +256,8 @@ int main(int argc, char* argv[]){
         for(int mdx=0;mdx<userEmbed.size();mdx++)
         {
             //cerr<<mdx<<" : ";
-            for(int fdx=0;fdx<k;fdx++) fs<<outputK_final[mdx*k+fdx]<<" ";
-            fs<<"\n";
+            for(int fdx=0;fdx<k-1;fdx++) fs<<outputK_final[mdx*k+fdx]<<" ";
+            fs<<outputK_final[mdx*k+k-1]<<"\n";
         }
     }  
     /*
@@ -285,6 +295,10 @@ int main(int argc, char* argv[]){
         }
     }
     */
+
+    time(&endT);
+    time_taken = double(endT - startT);
+    if(rank==0) cerr << "Algo time: "<<time_taken<<endl;
     
     MPI_Finalize();
 }
