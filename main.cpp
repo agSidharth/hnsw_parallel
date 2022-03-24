@@ -78,7 +78,7 @@ void SearchLayer(vector<float>& q,priority_queue<pair<float,int>, vector<pair<fl
 }
 
 
-void QueryHNSW(vector<float>& q,int* thistopk,int array_off,int ep,vector<int>& indptr,vector<int>& index,vector<int>& level_offset,int max_level,vector<vector<float>>& vect)
+void QueryHNSW(vector<float>& q,int* thistopk,int array_off,int k,int ep,vector<int>& indptr,vector<int>& index,vector<int>& level_offset,int max_level,vector<vector<float>>& vect)
 {
     priority_queue<pair<float,int>, vector<pair<float,int>>,comp> pq_topk;          //store (distance,node_id)
     pq_topk.push({cosine_dist(q,vect[ep]),ep});   
@@ -87,7 +87,7 @@ void QueryHNSW(vector<float>& q,int* thistopk,int array_off,int ep,vector<int>& 
     visited[ep] = 1;
     for(int lev=max_level;lev>=0;lev--)               // no parallelization possible..
     {
-        SearchLayer(q,pq_topk,indptr,index,level_offset,lev,visited,vect,q.size());
+        SearchLayer(q,pq_topk,indptr,index,level_offset,lev,visited,vect,k);
     }
 
     int total_size = pq_topk.size();
@@ -209,7 +209,7 @@ int main(int argc, char* argv[]){
     for(int idx=start;idx<end;idx+=1)
     {
         //cout << omp_get_num_threads();
-        QueryHNSW(userEmbed[idx],outputK,idx*k,ep,indptr,index,level_offset,max_level,vect);
+        QueryHNSW(userEmbed[idx],outputK,idx*k,k,ep,indptr,index,level_offset,max_level,vect);
     }
     
     int recvCounts[sze];
