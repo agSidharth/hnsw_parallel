@@ -34,7 +34,6 @@ float cosine_dist(vector<float>& x,vector<float>& y)          // can be parallel
 void SearchLayer(vector<float>& q,priority_queue<pair<float,int>, vector<pair<float,int>>,comp>& topk,vector<int>& indptr,vector<int>& index,vector<int>& level_offset,int lc,vector<int>& visited,vector<vector<float>>& vect,int k)
 {
     priority_queue<pair<float,int>, vector<pair<float,int>>,comp> candidates = topk;          //confirm if it is a priority queue or not..
-    
     /*
     queue<pair<float,int>> candidates;
     while(topk.size()>0)
@@ -79,9 +78,8 @@ void SearchLayer(vector<float>& q,priority_queue<pair<float,int>, vector<pair<fl
 }
 
 
-void QueryHNSW(vector<float>& q,int thistopk[],int num_users,int ep,vector<int>& indptr,vector<int>& index,vector<int>& level_offset,int max_level,vector<vector<float>>& vect)
+void QueryHNSW(vector<float>& q,int* thistopk,int array_off,int ep,vector<int>& indptr,vector<int>& index,vector<int>& level_offset,int max_level,vector<vector<float>>& vect)
 {
-
     priority_queue<pair<float,int>, vector<pair<float,int>>,comp> pq_topk;          //store (distance,node_id)
     pq_topk.push({cosine_dist(q,vect[ep]),ep});   
     vector<int> visited(vect.size(),0);
@@ -89,13 +87,13 @@ void QueryHNSW(vector<float>& q,int thistopk[],int num_users,int ep,vector<int>&
     visited[ep] = 1;
     for(int lev=max_level;lev>=0;lev--)               // no parallelization possible..
     {
-        SearchLayer(q,pq_topk,indptr,index,level_offset,lev,visited,vect,num_users);
+        SearchLayer(q,pq_topk,indptr,index,level_offset,lev,visited,vect,q.size());
     }
 
     int total_size = pq_topk.size();
     while(total_size>0)                            // no parallelization possible..
     {
-        thistopk[total_size-1] = pq_topk.top().second;
+        thistopk[array_off + total_size-1] = pq_topk.top().second;
         //cout << "  a  " << pq_topk.top().second << ":" << pq_topk.top().first <<" ";
         pq_topk.pop();
         total_size--;
@@ -194,9 +192,7 @@ int main(int argc, char* argv[]){
     outfil.close();
 
 
-    auto outputK = new int* [userEmbed.size()];
-    for(int i = 0; i < userEmbed.size(); ++i)
-        outputK[i] = new int[k];
+    int* outputK = new int[userEmbed.size()*k];
     //vector<vector<int>> outputK(userEmbed.size(),vector<int> (k,-1));        //recommendation==-1 means not yet computed.
 
     int rank, sze;
@@ -213,7 +209,7 @@ int main(int argc, char* argv[]){
     for(int idx=start;idx<end;idx+=1)
     {
         //cout << omp_get_num_threads();
-        QueryHNSW(userEmbed[idx],outputK[idx],userEmbed.size(),ep,indptr,index,level_offset,max_level,vect);
+        QueryHNSW(userEmbed[idx],outputK,idx*k,ep,indptr,index,level_offset,max_level,vect);
     }
     
     int recvCounts[sze];
@@ -226,7 +222,7 @@ int main(int argc, char* argv[]){
     }
     recvCounts[sze-1] = userEmbed.size()*k - (sze-1)*(userEmbed.size()/sze)*k;
     
-    int outputK_final[userEmbed.size()][k];
+    int* outputK_final = new int[userEmbed.size()*k];
 
     if(rank==-1)
     {
@@ -234,12 +230,12 @@ int main(int argc, char* argv[]){
         for(int mdx=0;mdx<userEmbed.size();mdx++)
         {
             cerr<<mdx<<" : ";
-            for(int fdx=0;fdx<k;fdx++) cerr<<outputK[mdx][fdx]<<" ";
+            for(int fdx=0;fdx<k;fdx++) cerr<<outputK[mdx*k+fdx]<<" ";
             cerr<<"\n";
         }
     }
 
-    MPI_Gatherv(&(outputK[start][0]),recvCounts[rank],MPI_INT,&(outputK_final[0][0]),recvCounts,displacements,MPI_INT,0,MPI_COMM_WORLD);
+    MPI_Gatherv(&(outputK[start*k]),recvCounts[rank],MPI_INT,&(outputK_final[0]),recvCounts,displacements,MPI_INT,0,MPI_COMM_WORLD);
     
     //cerr<<"rank: "<<rank<<", size: "<<sze<<endl;
 
@@ -250,7 +246,7 @@ int main(int argc, char* argv[]){
         for(int mdx=0;mdx<userEmbed.size();mdx++)
         {
             //cerr<<mdx<<" : ";
-            for(int fdx=0;fdx<k;fdx++) fs<<outputK_final[mdx][fdx]<<" ";
+            for(int fdx=0;fdx<k;fdx++) fs<<outputK_final[mdx*k+fdx]<<" ";
             fs<<"\n";
         }
     }  
