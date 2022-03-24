@@ -3,7 +3,7 @@ compile:
 datasetup:
 	sh DataSetup.sh ./dummy_data ./dummy_data_bin
 hnsw:
-	sh HNSWpred.sh dummy_data_bin 3 dummy_data/user.txt user_prediction.txt
+	sh HNSWpred.sh dummy_data_bin 5 dummy_data/user.txt user_prediction.txt
 data:
 	make compile
 	make datasetup
@@ -17,3 +17,4 @@ all:
 clean:
 	rm -f *.o
 	rm -rf dummy_data_bin
+	rm user_prediction.txt
