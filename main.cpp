@@ -16,7 +16,7 @@ class comp
     }
 };
 
-float cosine_dist(vector<float>& x,vector<float>& y)          // can be parallelized
+float cosine_dist(vector<float>& x,float* y)          // can be parallelized
 {
     float modX,modY,dotXY;
     modX = modY = dotXY = 0;
@@ -31,7 +31,7 @@ float cosine_dist(vector<float>& x,vector<float>& y)          // can be parallel
     return  float(dotXY)/float(sqrt(modX)*sqrt(modY));
 }
 
-void SearchLayer(vector<float>& q,priority_queue<pair<float,int>, vector<pair<float,int>>,comp>& topk,vector<int>& indptr,vector<int>& index,vector<int>& level_offset,int lc,vector<int>& visited,vector<vector<float>>& vect,int k)
+void SearchLayer(vector<float>& q,priority_queue<pair<float,int>, vector<pair<float,int>>,comp>& topk,vector<int>& indptr,vector<int>& index,vector<int>& level_offset,int lc,vector<int>& visited,float* vect,int vect_dim,int k)
 {
     priority_queue<pair<float,int>, vector<pair<float,int>>,comp> candidates = topk;          //confirm if it is a priority queue or not..
     /*
@@ -66,7 +66,7 @@ void SearchLayer(vector<float>& q,priority_queue<pair<float,int>, vector<pair<fl
             if(px==-1 || visited[px]==1) continue;
             
             visited[px] = 1;
-            float _dist = cosine_dist(q,vect[px]);
+            float _dist = cosine_dist(q,&vect[px*vect_dim]);
 
             if (_dist <= topk.top().first && topk.size()==k) continue;
 
@@ -78,16 +78,16 @@ void SearchLayer(vector<float>& q,priority_queue<pair<float,int>, vector<pair<fl
 }
 
 
-void QueryHNSW(vector<float>& q,int* thistopk,int array_off,int k,int ep,vector<int>& indptr,vector<int>& index,vector<int>& level_offset,int max_level,vector<vector<float>>& vect)
+void QueryHNSW(vector<float>& q,int* thistopk,int array_off,int k,int ep,vector<int>& indptr,vector<int>& index,vector<int>& level_offset,int max_level,float* vect,int vect_size,int vect_dim)
 {
     priority_queue<pair<float,int>, vector<pair<float,int>>,comp> pq_topk;          //store (distance,node_id)
-    pq_topk.push({cosine_dist(q,vect[ep]),ep});   
-    vector<int> visited(vect.size(),0);
+    pq_topk.push({cosine_dist(q,&vect[ep*vect_dim]),ep});   
+    vector<int> visited(vect_size,0);
 
     visited[ep] = 1;
     for(int lev=max_level;lev>=0;lev--)               // no parallelization possible..
     {
-        SearchLayer(q,pq_topk,indptr,index,level_offset,lev,visited,vect,k);
+        SearchLayer(q,pq_topk,indptr,index,level_offset,lev,visited,vect,vect_dim,k);
     }
 
     int total_size = pq_topk.size();
@@ -117,8 +117,12 @@ int main(int argc, char* argv[]){
     vector<int> level_offset;
     vector<int> indptr;
     vector<int> index;
-    vector<vector<float>> vect;
     vector<vector<float>> userEmbed;
+
+    int rank, sze;
+    MPI_Init(NULL,NULL);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &sze);
 
     time(&startT);
     // read all the files appropriately..
@@ -158,6 +162,56 @@ int main(int argc, char* argv[]){
     }
     outfil.close();
 
+    int vec_size,vec_dim;
+
+    outfil.open(out_dir+"/dim.bin",ios::in);
+    outfil.read((char*)&vec_dim,4);
+    outfil.read((char*)&vec_size,4);
+    outfil.close();
+
+    //if(rank==0)cerr<<vec_size<<" "<<vec_dim<<endl;
+
+    float* vect = new float[vec_size*vec_dim];
+
+    int this_vec_start = (vec_size/sze)*rank*vec_dim;
+    int this_vec_end = (vec_size/sze)*(rank+1)*vec_dim;
+    if(rank==sze-1) this_vec_end = vec_size*vec_dim;
+
+    float* this_vect = new float[(this_vec_end-this_vec_start)];
+
+    int vecRecvCount[sze];
+    int vecDisp[sze];
+
+    for(int mdx=0;mdx<sze;mdx++)
+    {
+        vecRecvCount[mdx] = (vec_size/sze)*vec_dim;
+        vecDisp[mdx] = (vec_size/sze)*vec_dim*mdx;
+    }
+    vecRecvCount[sze-1] = vec_size*vec_dim - (vec_size/sze)*vec_dim*(sze-1);
+        
+    MPI_File mpiFil;
+    MPI_File_open(MPI_COMM_WORLD,(out_dir+"/vect.bin").c_str(),MPI_MODE_RDWR|MPI_MODE_CREATE,MPI_INFO_NULL,&mpiFil);
+
+    MPI_File_set_view(mpiFil,0,MPI_FLOAT,MPI_FLOAT,"native",MPI_INFO_NULL);
+
+    MPI_File_read_at_all(mpiFil,this_vec_start,this_vect,(this_vec_end-this_vec_start),MPI_FLOAT,MPI_STATUS_IGNORE);
+    
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_File_close(&mpiFil);
+
+    MPI_Allgatherv(this_vect,(this_vec_end-this_vec_start),MPI_FLOAT,vect,vecRecvCount,vecDisp,MPI_FLOAT,MPI_COMM_WORLD);
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    if(rank==-1)
+    {
+        for(int idx=0;idx<vec_size;idx++)
+        {
+            cerr<<idx<<": ";
+            for(int jdx=0;jdx<vec_dim;jdx++) cerr<<vect[idx*vec_dim+jdx]<<" ";
+            cerr<<"\n";
+        }
+    }
+    /*
     outfil.open(out_dir+"/vect.bin",ios::in);
     int size;
     outfil.read((char*)&size,4);
@@ -176,15 +230,18 @@ int main(int argc, char* argv[]){
         }
     }
     outfil.close();
+    */
 
     outfil.open(user_file,ios::in);
-    i = 0;
+    int i = 0;
+    float tmp;
+    vector<float> teemp;
     teemp.resize(0);
     while(outfil>>tmp)
     {
         teemp.push_back(tmp);
         i++;
-        if(i == size)
+        if(i == vec_dim)
         {
             i = 0;
             userEmbed.push_back(teemp);
@@ -196,11 +253,6 @@ int main(int argc, char* argv[]){
     
     int* outputK = new int[userEmbed.size()*k];
     //vector<vector<int>> outputK(userEmbed.size(),vector<int> (k,-1));        //recommendation==-1 means not yet computed.
-
-    int rank, sze;
-    MPI_Init(NULL,NULL);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &sze);
 
     time(&endT);
     double time_taken = double(endT - startT);
@@ -218,7 +270,7 @@ int main(int argc, char* argv[]){
     #pragma omp parallel for
     for(int idx=start;idx<end;idx+=1)
     {
-        QueryHNSW(userEmbed[idx],outputK,idx*k,k,ep,indptr,index,level_offset,max_level,vect);
+        QueryHNSW(userEmbed[idx],outputK,idx*k,k,ep,indptr,index,level_offset,max_level,vect,vec_size,vec_dim);
     }
     
     int recvCounts[sze];

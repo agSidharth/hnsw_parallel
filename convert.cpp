@@ -65,6 +65,7 @@ int main(int argc, char* argv[]){
 
     string in_vect = "/vect.txt";
     string out_vect = "/vect.bin";
+    string str_dim = "/dim.bin";
 
     // infil.open(input_dir+in_vect,ios::in);
     // string str;
@@ -84,25 +85,29 @@ int main(int argc, char* argv[]){
     
     infil.open(input_dir+in_vect,ios::in);
     outfil.open(output_dir+out_vect,ios::out);
+    fstream ofile(output_dir + str_dim, ios::out);
 
     string str;
     int no = 0;
-
+    int cnt = 0;
     while(getline(infil,str))
     {
+        cnt++;
         if(str.size() == 0) break;
         vector<float> tmp;
         int k = fill(tmp,str);
         if(no == 0)
         {
             no = 1;
-            outfil.write((char*)&k,4);
+            ofile.write((char*)&k,4);
         }
         for(int i=0;i<tmp.size();i++)
         {
             outfil.write((char*)&tmp[i],4);
         }
     }
-
+    ofile.write((char*)&cnt,4);
+    ofile.close();
+    outfil.close();
 
 }
