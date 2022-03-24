@@ -1,5 +1,6 @@
 #include <bits/stdc++.h>
 #include <mpi.h>
+#include<omp.h>
 
 using namespace std;
 
@@ -193,7 +194,9 @@ int main(int argc, char* argv[]){
     outfil.close();
 
 
-    int outputK[userEmbed.size()][k];
+    auto outputK = new int* [userEmbed.size()];
+    for(int i = 0; i < userEmbed.size(); ++i)
+        outputK[i] = new int[k];
     //vector<vector<int>> outputK(userEmbed.size(),vector<int> (k,-1));        //recommendation==-1 means not yet computed.
 
     int rank, sze;
@@ -206,9 +209,10 @@ int main(int argc, char* argv[]){
 
     if(rank==sze-1) end = userEmbed.size();
 
-    #pragma omp parallel for num_threads(4)
+    #pragma omp parallel for
     for(int idx=start;idx<end;idx+=1)
     {
+        //cout << omp_get_num_threads();
         QueryHNSW(userEmbed[idx],outputK[idx],userEmbed.size(),ep,indptr,index,level_offset,max_level,vect);
     }
     
@@ -238,16 +242,18 @@ int main(int argc, char* argv[]){
     MPI_Gatherv(&(outputK[start][0]),recvCounts[rank],MPI_INT,&(outputK_final[0][0]),recvCounts,displacements,MPI_INT,0,MPI_COMM_WORLD);
     
     //cerr<<"rank: "<<rank<<", size: "<<sze<<endl;
+
+    fstream fs(out_pred,ios::out);
     if(rank==0)
     {
-        cerr<<"After gather..\n";
+        //cerr<<"After gather..\n";
         for(int mdx=0;mdx<userEmbed.size();mdx++)
         {
-            cerr<<mdx<<" : ";
-            for(int fdx=0;fdx<k;fdx++) cerr<<outputK_final[mdx][fdx]<<" ";
-            cerr<<"\n";
+            //cerr<<mdx<<" : ";
+            for(int fdx=0;fdx<k;fdx++) fs<<outputK_final[mdx][fdx]<<" ";
+            fs<<"\n";
         }
-    }    
+    }  
     /*
     if(rank%sze==0)
     {

@@ -17,3 +17,4 @@ all:
 clean:
 	rm -f *.o
 	rm -rf dummy_data_bin
+	rm user_prediction.txt
