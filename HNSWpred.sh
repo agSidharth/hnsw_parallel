@@ -1,1 +1,1 @@
-mpirun -np 4 hnsw.o $1 $2 $3 $4
+mpirun --bind-to none hnsw.o $1 $2 $3 $4
